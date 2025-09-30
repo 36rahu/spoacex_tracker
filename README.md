@@ -63,7 +63,7 @@
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/36rahu/spoacex_tracker.git
 cd spacextracker
 ```
 
