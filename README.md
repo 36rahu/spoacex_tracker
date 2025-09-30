@@ -9,6 +9,7 @@
 - [Project Structure](#project-structure)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Docker Commands](#docker-commands)
 - [API Endpoints](#api-endpoints)
 - [Celery Tasks](#celery-tasks)
 - [Testing](#testing)
