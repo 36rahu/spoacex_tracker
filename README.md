@@ -71,8 +71,10 @@ cd spacextracker
 make install
 ```
 
-3. Create `.env` file if environment variables are needed for DB or Redis configuration.
-
+3. Create `.env` file from the sample
+```bash
+make setup-env
+```
 ---
 
 ## Usage
@@ -82,6 +84,9 @@ make install
 make run
 ```
 The app will be available at `http://localhost:8000`.
+
+Note:
+##### Please ensure that MongoDB and Redis are installed and running.
 
 ### Access Web UI
 Open `http://localhost:8000/ui` in your browser.
