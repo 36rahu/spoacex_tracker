@@ -101,12 +101,12 @@ This will run the Celery worker with the beat scheduler.
 ## Docker Commands
 You can use the following Makefile commands to manage the Docker setup:
 
-# Build and start all containers
+### Build and start all containers
 Builds the images and starts all services (FastAPI, Celery, MongoDB, Redis).
 ```bash
 make docker-up
 ```
-# Stop and remove all containers
+### Stop and remove all containers
 Stops all containers and removes them.
 ```bash
 make docker-down
