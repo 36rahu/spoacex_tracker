@@ -35,3 +35,9 @@ start-celery:
 clear-cache:
 	# Flush all keys in Redis (dangerous in prod!)
 	redis-cli FLUSHALL
+
+docker-up:
+	docker-compose up --build
+
+docker-down:
+	docker-compose down

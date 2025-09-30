@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException
 from spacextracker.services.utils import to_datetime
 from spacextracker.services.cache_service import redis_cache
+from spacextracker.services.store_to_db import update_launches_in_db
 from spacextracker.db import (
     launches_collection,
     rockets_collection,
@@ -24,6 +25,10 @@ def get_launches(
     Fetch launches filtered by date, rocket, success, or launchpad.
     """
     try:
+        # Only update DB if collection is empty
+        if launches_collection.count_documents({}) == 0:
+            update_launches_in_db()
+        
         query: Dict[str, Any] = {}
 
         if start_date or end_date:

@@ -1,8 +1,6 @@
 from typing import Dict
 from .celery_app import celery, celery_logger
 from .services.store_to_db import update_launches_in_db
-from .logger import logger
-
 
 @celery.task
 def fetch_and_store_launches() -> Dict[str, int]:

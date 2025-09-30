@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: spacex-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7.0
+    container_name: spacex-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spacex-api
+    environment:
+      environment:
+      RUN_TYPE: "api"
+      MONGO_URI: "mongodb://mongo:27017"
+      DB_NAME: "spacex"
+      REDIS_URL: "redis://redis:6379/0"
+      CACHE_TTL: "3600"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+    depends_on:
+      - mongo
+      - redis
+    ports:
+      - "8000:8000"
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spacex-celery
+    environment:
+      MONGO_URI: "mongodb://mongo:27017"
+      REDIS_URL: "redis://redis:6379/0"
+      RUN_TYPE: "celery"
+      DB_NAME: "spacex"
+      CACHE_TTL: "3600"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      CELERY_FETCH_MINUTES: "60"
+    depends_on:
+      - mongo
+      - redis
+
+volumes:
+  mongo-data:

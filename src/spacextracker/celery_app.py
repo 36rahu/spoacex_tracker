@@ -5,7 +5,6 @@ from typing import Any, Dict
 from celery import Celery
 from dotenv import load_dotenv
 from celery.schedules import timedelta
-import spacextracker.tasks  # noqa: F401
 
 load_dotenv()
 
@@ -34,6 +33,8 @@ celery: Celery = Celery(
     broker=REDIS_URL,
     backend=REDIS_URL,
 )
+
+import spacextracker.tasks  # noqa: F401 # Ensure tasks are registered
 
 celery.conf.update(
     task_serializer="json",
