@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SpaceX Launch Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; text-align: center; }
+        h1 { margin-bottom: 30px; }
+        .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { padding: 8px 15px; border: none; cursor: pointer; background: #ddd; border-radius: 5px; font-weight: bold; }
+        .tab-btn.active { background: #007BFF; color: #fff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .filters { margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        input, select, button { padding: 5px 10px; font-size: 0.9em; }
+        button { cursor: pointer; }
+        .error-message { color: red; margin-top: 10px; }
+        .launches-container, .stats-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-top: 20px; }
+        .launch-card, .stat-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 250px; padding: 15px; display: flex; flex-direction: column; gap: 8px; text-align: center; }
+        .launch-card img { width: 100%; border-radius: 5px; }
+        .launch-card h3, .stat-card h4 { margin: 0; font-size: 1.1em; }
+        .launch-card p, .stat-card p { margin: 0; font-size: 0.9em; }
+        .launch-card a { text-decoration: none; color: #007BFF; font-size: 0.85em; }
+        canvas { background: #fff; border-radius: 10px; margin-top: 20px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>SpaceX Launch Dashboard</h1>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="launchesTab">Launches</button>
+        <button class="tab-btn" data-tab="statsTab">Statistics</button>
+    </div>
+
+    <!-- Launches Tab -->
+    <div id="launchesTab" class="tab-content active">
+        <div class="filters">
+            <input type="date" id="start_date" placeholder="Start Date">
+            <input type="date" id="end_date" placeholder="End Date">
+            <input type="text" id="rocket_name" placeholder="Rocket Name">
+            <input type="text" id="launchpad" placeholder="Launchpad Name">
+            <select id="success">
+                <option value="">Any</option>
+                <option value="true">Success</option>
+                <option value="false">Failure</option>
+            </select>
+            <button id="fetchLaunches">Fetch Launches</button>
+            <button id="downloadLaunches">Export JSON</button>
+        </div>
+
+        <div id="totalLaunches" style="margin-bottom: 15px; font-weight: bold;"></div>
+        <div id="errorMessage" class="error-message"></div>
+        <div class="launches-container" id="launchesContainer"></div>
+    </div>
+
+    <!-- Statistics Tab -->
+    <div id="statsTab" class="tab-content">
+        <div id="statsErrorMessage" class="error-message"></div>
+
+        <button id="downloadStats" style="margin-top:20px;">Export JSON</button>
+
+        <h2>Rocket Success Rates</h2>
+        <div class="stats-container" id="rocketStats"></div>
+
+        <h2>Launchpad Totals</h2>
+        <div class="stats-container" id="launchpadStats"></div>
+
+        <h2>Monthly Launch Frequency</h2>
+        <canvas id="monthlyChart" width="800" height="400"></canvas>
+
+        <h2>Yearly Launch Frequency</h2>
+        <canvas id="yearlyChart" width="800" height="400"></canvas>
+    </div>
+
+    <script>
+        // --- Tab Switching ---
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                const tabId = btn.dataset.tab;
+                document.getElementById(tabId).classList.add('active');
+
+                if(tabId === 'statsTab') fetchStatistics();
+            });
+        });
+
+        // --- Launches ---
+        const fetchBtn = document.getElementById('fetchLaunches');
+        const launchesContainer = document.getElementById('launchesContainer');
+        const errorMessage = document.getElementById('errorMessage');
+
+        fetchBtn.addEventListener('click', async () => {
+            const params = new URLSearchParams();
+            const start = document.getElementById('start_date').value;
+            const end = document.getElementById('end_date').value;
+            const rocket = document.getElementById('rocket_name').value;
+            const launchpad = document.getElementById('launchpad').value;
+            const success = document.getElementById('success').value;
+            if(start) params.append('start_date', start);
+            if(end) params.append('end_date', end);
+            if(rocket) params.append('rocket_name', rocket);
+            if(launchpad) params.append('launchpad', launchpad);
+            if(success) params.append('success', success);
+
+            errorMessage.textContent = '';
+            launchesContainer.innerHTML = '';
+            document.getElementById('totalLaunches').textContent = '';
+
+            try {
+                const res = await fetch(`/launches?${params.toString()}`);
+                if(!res.ok){
+                    const errData = await res.json();
+                    errorMessage.textContent = `Error ${res.status}: ${errData.detail || res.statusText}`;
+                    return;
+                }
+                const data = await res.json();
+                if(data.length === 0){ errorMessage.textContent = 'No launches found.'; return; }
+                
+                document.getElementById('totalLaunches').textContent = `Total Launches: ${data.length}`;
+                
+                data.forEach(launch => {
+                    const card = document.createElement('div');
+                    card.className = 'launch-card';
+                    card.innerHTML = `
+                        <img src="${launch.links?.img || ''}" alt="${launch.name}">
+                        <h3>${launch.name}</h3>
+                        <p><strong>Date:</strong> ${new Date(launch.date).toLocaleDateString()}</p>
+                        <p><strong>Rocket:</strong> ${launch.rocket?.name} (${launch.rocket?.success_rate_pct}%)</p>
+                        <p><strong>Launchpad:</strong> ${launch.launchpad?.name}</p>
+                        <p><strong>Details:</strong> ${launch.details || 'N/A'}</p>
+                        <p>
+                            ${launch.links?.webcast ? `<a href="${launch.links.webcast}" target="_blank">Webcast</a> | ` : ''}
+                            ${launch.links?.article ? `<a href="${launch.links.article}" target="_blank">Article</a> | ` : ''}
+                            ${launch.links?.wikipedia ? `<a href="${launch.links.wikipedia}" target="_blank">Wikipedia</a>` : ''}
+                        </p>
+                    `;
+                    launchesContainer.appendChild(card);
+                });
+            } catch (err){ errorMessage.textContent = 'Network error: '+err.message; }
+        });
+
+        // --- Statistics ---
+        const rocketStats = document.getElementById('rocketStats');
+        const launchpadStats = document.getElementById('launchpadStats');
+        const statsErrorMessage = document.getElementById('statsErrorMessage');
+        let monthlyChartInstance, yearlyChartInstance;
+
+        async function fetchStatistics(){
+            statsErrorMessage.textContent = '';
+            rocketStats.innerHTML = '';
+            launchpadStats.innerHTML = '';
+            if(monthlyChartInstance) monthlyChartInstance.destroy();
+            if(yearlyChartInstance) yearlyChartInstance.destroy();
+
+            try {
+                const res = await fetch('/statistics');
+                if(!res.ok){
+                    const errData = await res.json();
+                    statsErrorMessage.textContent = `Error ${res.status}: ${errData.detail || res.statusText}`;
+                    return;
+                }
+                const data = await res.json();
+
+                // Rocket success rates
+                for(const [rocket, rate] of Object.entries(data.rocket_success_rates)){
+                    const card = document.createElement('div');
+                    card.className = 'stat-card';
+                    card.innerHTML = `<h4>${rocket}</h4><p><b>Success Rate:</b> ${rate}%</p>`;
+                    rocketStats.appendChild(card);
+                }
+
+                // Launchpad totals
+                for(const [launchpad, info] of Object.entries(data.launchpad_totals)){
+                    const card = document.createElement('div');
+                    card.className = 'stat-card';
+                    card.innerHTML = `<h4>${launchpad}</h4>
+                        <p><b>Full Name:</b> ${info.full_name}</p>
+                        <p><b>Attempts:</b> ${info.launch_attempts}</p>
+                        <p><b>Successes:</b> ${info.launch_successes}</p>`;
+                    launchpadStats.appendChild(card);
+                }
+
+                // Monthly Launch Frequency Chart
+                const months = Object.keys(data.launch_frequency.monthly_launch_frequency);
+                const monthCounts = Object.values(data.launch_frequency.monthly_launch_frequency);
+                const ctxMonth = document.getElementById('monthlyChart').getContext('2d');
+                monthlyChartInstance = new Chart(ctxMonth, {
+                    type: 'bar',
+                    data: { labels: months, datasets: [{ label: 'Launches', data: monthCounts, backgroundColor: '#007BFF' }] },
+                    options: { responsive:true, scales:{ x:{ ticks:{ maxRotation:90, minRotation:45 } }, y:{ beginAtZero:true } } }
+                });
+
+                // Yearly Launch Frequency Chart
+                const years = Object.keys(data.launch_frequency.yearly_launch_frequency);
+                const yearCounts = Object.values(data.launch_frequency.yearly_launch_frequency);
+                const ctxYear = document.getElementById('yearlyChart').getContext('2d');
+                yearlyChartInstance = new Chart(ctxYear, {
+                    type: 'line',
+                    data: { labels: years, datasets: [{ label: 'Launches', data: yearCounts, borderColor: '#28A745', fill:false, tension:0.3 }] },
+                    options: { responsive:true, scales:{ y:{ beginAtZero:true } } }
+                });
+
+            } catch(err){ statsErrorMessage.textContent = 'Network error: '+err.message; }
+        }
+
+        // --- Download JSON ---
+        async function downloadFile(url, filename){
+            try {
+                const res = await fetch(url);
+                if(!res.ok) throw new Error('Failed to download file');
+                const blob = await res.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            } catch(err){
+                alert('Error downloading file: '+err.message);
+            }
+        }
+
+        document.getElementById('downloadLaunches').addEventListener('click', () => {
+            const params = new URLSearchParams();
+            const start = document.getElementById('start_date').value;
+            const end = document.getElementById('end_date').value;
+            const rocket = document.getElementById('rocket_name').value;
+            const launchpad = document.getElementById('launchpad').value;
+            const success = document.getElementById('success').value;
+            if(start) params.append('start_date', start);
+            if(end) params.append('end_date', end);
+            if(rocket) params.append('rocket_name', rocket);
+            if(launchpad) params.append('launchpad', launchpad);
+            if(success) params.append('success', success);
+
+            downloadFile(`/launches/download?${params.toString()}`, 'launches.json');
+        });
+
+        document.getElementById('downloadStats').addEventListener('click', () => {
+            downloadFile('/statistics/download', 'statistics.json');
+        });
+
+    </script>
+</body>
+</html>
