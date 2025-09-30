@@ -5,6 +5,9 @@ PACKAGE := spacextracker
 install:
 	poetry install
 
+setup-env:
+	cp env_example .env
+
 run:
 	poetry run uvicorn spacextracker.app:app --reload --host 0.0.0.0 --port 8000
 

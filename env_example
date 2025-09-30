@@ -1,0 +1,9 @@
+MONGO_URI=mongodb://localhost:27017
+DB_NAME=spacex
+
+CACHE_TTL=3600  # 1 hour
+REDIS_URL=redis://localhost:6379/0
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+CELERY_FETCH_MINUTES=60
